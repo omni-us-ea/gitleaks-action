@@ -128336,6 +128336,7 @@ const os = __nccwpck_require__(22037);
 const path = __nccwpck_require__(71017);
 const { DefaultArtifactClient } = __nccwpck_require__(79450);
 const io = __nccwpck_require__(47351);
+const crypto = __nccwpck_require__(6113);
 
 const EXIT_CODE_LEAKS_DETECTED = 2;
 
@@ -128345,7 +128346,9 @@ const EXIT_CODE_LEAKS_DETECTED = 2;
 // or use the latest version of gitleaks if GITLEAKS_VERSION is not specified.
 // This function will also cache the downloaded gitleaks binary in the tool cache.
 async function Install(version) {
-  const pathToInstall = path.join(os.tmpdir(), `gitleaks-${version}`);
+  // Generate a random number between 1000-9999 for uniqueness
+  const randomNum = Math.floor(Math.random() * 9000) + 1000;
+  const pathToInstall = path.join(os.tmpdir(), `gitleaks${randomNum}-${version}`);
   core.info(
     `Version to install: ${version} (target directory: ${pathToInstall})`
   );
@@ -128368,9 +128371,11 @@ async function Install(version) {
     core.info(`Downloading gitleaks from ${gitleaksReleaseURL}`);
     let downloadPath = "";
     try {
+      // Use a unique temporary file name for download
+      const tempFileName = `gitleaks${randomNum}.tmp`;
       downloadPath = await tc.downloadTool(
         gitleaksReleaseURL,
-        path.join(os.tmpdir(), `gitleaks.tmp`)
+        path.join(os.tmpdir(), tempFileName)
       );
     } catch (error) {
       core.error(
