@@ -128335,6 +128335,7 @@ const { readFileSync } = __nccwpck_require__(57147);
 const os = __nccwpck_require__(22037);
 const path = __nccwpck_require__(71017);
 const { DefaultArtifactClient } = __nccwpck_require__(79450);
+const io = __nccwpck_require__(47351);
 
 const EXIT_CODE_LEAKS_DETECTED = 2;
 
@@ -128380,7 +128381,7 @@ async function Install(version) {
     if (gitleaksReleaseURL.endsWith(".zip")) {
       await tc.extractZip(downloadPath, pathToInstall);
     } else if (gitleaksReleaseURL.endsWith(".tar.gz")) {
-      await tc.extractTar(downloadPath, pathToInstall);
+      await extractTarWithRetry(downloadPath, pathToInstall);
     } else {
       core.error(`Unsupported archive format: ${gitleaksReleaseURL}`);
     }
@@ -128591,6 +128592,34 @@ All secrets that have been leaked will be reported in the summary and job artifa
   // exit code 1 means error has occurred in gitleaks
   // exit code 0 means no leaks detected
   return exitCode;
+}
+
+async function extractTarWithRetry(downloadPath, pathToInstall, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Clean up the destination directory before extraction
+      await io.rmRF(pathToInstall);
+      await io.mkdirP(pathToInstall);
+      
+      // Set proper permissions
+      await exec.exec('chmod', ['755', pathToInstall]);
+      
+      // Extract with overwrite flag
+      await tc.extractTar(downloadPath, pathToInstall, 'xz');
+      
+      // Set permissions after extraction
+      await exec.exec('chmod', ['-R', '755', pathToInstall]);
+      
+      return; // Success
+    } catch (error) {
+      if (attempt === maxRetries) {
+        throw new Error(`Failed to extract tar after ${maxRetries} attempts. Last error: ${error.message}`);
+      }
+      core.warning(`Attempt ${attempt}/${maxRetries} failed to extract tar. Error: ${error.message}. Retrying...`);
+      // Wait before retry (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+    }
+  }
 }
 
 module.exports.Scan = Scan;
