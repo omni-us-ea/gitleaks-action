@@ -128348,7 +128348,9 @@ const EXIT_CODE_LEAKS_DETECTED = 2;
 async function Install(version) {
   // Generate a random number between 1000-9999 for uniqueness
   const randomNum = Math.floor(Math.random() * 9000) + 1000;
-  const pathToInstall = path.join(os.tmpdir(), `gitleaks${randomNum}-${version}`);
+  const date = new Date();
+  const timestamp = `${date.toISOString().split('T')[0]}-${date.getSeconds()}`;
+  const pathToInstall = path.join(os.tmpdir(), `gitleaks${randomNum}-${timestamp}-${version}`);
   core.info(
     `Version to install: ${version} (target directory: ${pathToInstall})`
   );
