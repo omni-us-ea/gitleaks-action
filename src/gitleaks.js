@@ -56,8 +56,14 @@ async function Install(version) {
         path.join(os.tmpdir(), tempFileName)
       );
     } catch (error) {
-      core.error(
-        `could not install gitleaks from ${gitleaksReleaseURL}, error: ${error}`
+      throw new Error(
+        `could not install gitleaks from ${gitleaksReleaseURL}, error: ${error.message || error}`
+      );
+    }
+
+    if (!downloadPath) {
+      throw new Error(
+        `download did not produce an archive for ${gitleaksReleaseURL}`
       );
     }
 
@@ -138,12 +144,18 @@ async function Scan(gitleaksEnableUploadArtifact, scanInfo, eventType) {
       continueOnError: true,
     };
 
-    await artifactClient.uploadArtifact(
-      artifactName,
-      ["results.sarif"],
-      process.env.HOME,
-      options
-    );
+    try {
+      await artifactClient.uploadArtifact(
+        artifactName,
+        ["results.sarif"],
+        process.env.HOME,
+        options
+      );
+    } catch (error) {
+      core.warning(
+        `Failed to upload artifact [${artifactName}]. Continuing without artifact upload. Error: ${error.message}`
+      );
+    }
   }
 
   return exitCode;
@@ -278,6 +290,10 @@ All secrets that have been leaked will be reported in the summary and job artifa
 }
 
 async function extractTarWithRetry(downloadPath, pathToInstall, maxRetries = 3) {
+  if (!downloadPath) {
+    throw new Error("parameter 'file' is required");
+  }
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Clean up the destination directory before extraction
